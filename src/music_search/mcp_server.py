@@ -1,0 +1,39 @@
+from typing import Any, Annotated
+from fastmcp import FastMCP
+from fastmcp.exceptions import ToolError
+from .api_music_gequbao import (
+    api_music_gequbao_search
+)
+
+# Create a basic server instance
+mcp = FastMCP(name="music_search")
+
+# You can also add instructions for how to interact with the server
+mcp_with_instructions = FastMCP(
+    name="music_search",
+    instructions="""
+        search music online, you can search by artist or song name
+    """,
+)
+
+@mcp.tool
+def search_music(keyword: Annotated[str, "search keyword"]) -> list:
+    '''search music online, you can search by artist or song name'''
+    result = api_music_gequbao_search(keyword)
+    if result is None:
+        raise ToolError("search failed, current search engine may have problems")
+    try:
+        url = result[1]['data']['url']
+        title = result[0]['mp3_title']
+        artist = result[0]['mp3_author']
+        artwork_url = result[0]['mp3_cover']
+        search_result = []
+        search_result.append({
+            "url": url,
+            "title": title,
+            "artist": artist,
+            "artworkUrl": artwork_url
+        })
+        return search_result
+    except Exception as e:
+        raise ToolError(f"search failed, {e}")
