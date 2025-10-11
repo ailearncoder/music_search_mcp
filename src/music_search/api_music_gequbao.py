@@ -5,6 +5,10 @@ from urllib.parse import quote
 import re
 import json
 import random
+import logging
+
+# 导入logger
+from .logging_config import logger
 
 def parse_music_data(html_content: str) -> list:
     """
@@ -105,7 +109,7 @@ def extract_app_data(html_content: str) -> tuple:
                     data["lrc"] = lrc_content
                     return data
                 except json.JSONDecodeError as e:
-                    print(f"解析JSON时出错: {e}")
+                    logger.error(f"解析JSON时出错: {e}")
                     return None
     return None
 
@@ -138,7 +142,7 @@ def gequbao_request(
     """
     base_url = "https://www.gequbao.com"
     full_url = f"{base_url}{path}"
-    print(f"正在向 URL: {full_url} 发送 {method.upper()} 请求...")
+    logger.info(f"正在向 URL: {full_url} 发送 {method.upper()} 请求...")
     try:
         # requests.request() 是一个更通用的方法，可以简化if/else
         response = requests.request(
@@ -152,12 +156,12 @@ def gequbao_request(
         )
         # 检查请求是否成功 (例如，状态码不是 4xx 或 5xx)
         response.raise_for_status()
-        print(f"请求成功，状态码: {response.status_code}")
+        logger.info(f"请求成功，状态码: {response.status_code}")
         # 成功时返回响应对象
         return response
     except requests.exceptions.RequestException as e:
         # 捕获所有 requests 相关的异常
-        print(f"请求失败: {e}")
+        logger.error(f"请求失败: {e}")
         return None
 
 
@@ -239,14 +243,14 @@ def api_music_gequbao_search(keyword: str) -> Tuple[Dict, Dict] | None:
     # 使用 .lower() 进行不区分大小写的比较，更加健壮
     if keyword.lower() == top_artist_name.lower():
         search_type = 'artist'
-        print(f"识别到搜索意图: 歌手 ({top_artist_name})")
+        logger.info(f"识别到搜索意图: 歌手 ({top_artist_name})")
     # 如果关键词与歌曲名完全匹配，也认为是歌曲搜索
     elif keyword.lower() == top_song_title.lower():
         search_type = 'song'
-        print(f"识别到搜索意图: 歌曲 ({top_song_title})")
+        logger.info(f"识别到搜索意图: 歌曲 ({top_song_title})")
     else:
         # 对于 "歌手 歌名" 的格式或其他模糊搜索，默认为歌曲搜索
-        print(f"识别到搜索意图: 默认为歌曲搜索 (关键词: '{keyword}')")
+        logger.info(f"识别到搜索意图: 默认为歌曲搜索 (关键词: '{keyword}')")
 
     # 3. 根据识别的意图选择歌曲
     selected_sound = None
@@ -257,15 +261,15 @@ def api_music_gequbao_search(keyword: str) -> Tuple[Dict, Dict] | None:
         # 如果筛选出结果，则随机选择一首；否则，为保险起见，返回第一首
         if artist_songs:
             selected_sound = random.choice(artist_songs)
-            print(f"为歌手 '{top_artist_name}' 随机选择了歌曲: '{selected_sound['text'][0]}'")
+            logger.info(f"为歌手 '{top_artist_name}' 随机选择了歌曲: '{selected_sound['text'][0]}'")
         else:
             selected_sound = top_result
-            print(f"未能在结果中筛选出歌手 '{top_artist_name}' 的其他歌曲，返回首个结果。")
+            logger.warning(f"未能在结果中筛选出歌手 '{top_artist_name}' 的其他歌曲，返回首个结果。")
             
     else: # search_type == 'song'
         # 直接选择最匹配的结果
         selected_sound = top_result
-        print(f"为歌曲 '{top_song_title}' 选择了最匹配的结果。")
+        logger.info(f"为歌曲 '{top_song_title}' 选择了最匹配的结果。")
 
     # 4. 获取播放信息和URL
     sound_info = play_sound(selected_sound["link"])
@@ -303,5 +307,5 @@ def search_save():
 # --- 主程序入口，演示如何使用上面的函数 ---
 if __name__ == "__main__":
     url = get_search_sound_url("林俊杰")
-    print(url)
+    logger.info(f"搜索结果URL: {url}")
 
