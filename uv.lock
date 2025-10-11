@@ -647,7 +647,7 @@ wheels = [
 ]
 
 [[package]]
-name = "music-search"
+name = "music-search-mcp"
 version = "0.1.0"
 source = { editable = "." }
 dependencies = [
