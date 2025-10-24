@@ -34,13 +34,15 @@ def search_music(keyword: Annotated[str, "search keyword"]) -> dict:
         artist = result[0].get('mp3_author', '未知歌手')
         artwork_url = result[0].get('mp3_cover', '')
         lrc = result[0].get('lrc', '')
+        lrc_url = result[0].get('lrc_url', '')
         search_result = []
         search_result.append({
             "url": url,
             "title": title,
             "artist": artist,
             "artworkUrl": artwork_url,
-            "lrc": lrc
+            "lrcText": lrc,
+            "lrcUrl": lrc_url
         })
         return {
             "success": True,
