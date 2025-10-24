@@ -129,6 +129,7 @@ def gequbao_request(
     data: Optional[Union[Dict[str, Any], str]] = None,
     json_data: Optional[Dict[str, Any]] = None,
     use_cache: bool = True,
+    cache_expiry: int | None = None,
 ) -> Optional[requests.Response]:
     """
     在 "歌曲宝" 网站上发送指定方法的 HTTP 请求，并返回响应对象。
@@ -164,6 +165,7 @@ def gequbao_request(
             method=method,
             data=data,
             json_data=json_data,
+            cache_expiry=cache_expiry
         )
         
         if cached_data:
@@ -307,7 +309,7 @@ def search_sound(keyword: str):
 
 def play_sound(link: str):
     response = gequbao_request(
-        headers=request_headers, path=link
+        headers=request_headers, path=link, use_cache=False
     )
     if response and response.status_code == 200:
         return extract_app_data(response.text)
@@ -319,6 +321,7 @@ def get_play_url(play_id: str) -> Dict:
         headers=request_headers,
         path=f"/api/play-url",
         data={"id": play_id},
+        use_cache=False
     )
     if response and response.status_code == 200:
         return response.json()

@@ -96,6 +96,7 @@ class RequestCache:
         method: str = "GET",
         data: Optional[Union[Dict[str, Any], str]] = None,
         json_data: Optional[Dict[str, Any]] = None,
+        cache_expiry: int | None = None
     ) -> Optional[Dict[str, Any]]:
         """
         从缓存中获取响应数据
@@ -105,6 +106,7 @@ class RequestCache:
             method: 请求方法
             data: POST 请求的表单数据
             json_data: POST 请求的 JSON 数据
+            cache_expiry: 缓存有效期 (秒)，如果为 None 则使用默认值
 
         Returns:
             缓存的响应数据，包含:
@@ -116,6 +118,8 @@ class RequestCache:
             - is_expired: 是否过期
             如果缓存不存在则返回 None
         """
+        if cache_expiry is None:
+            cache_expiry = self.CACHE_EXPIRY
         cache_key = self._generate_cache_key(url, method, data, json_data)
         cache_file = self._get_cache_file_path(cache_key)
 
@@ -131,14 +135,14 @@ class RequestCache:
             current_time = time.time()
             cached_time = cache_data.get('timestamp', 0)
             age = current_time - cached_time
-            is_expired = age > self.CACHE_EXPIRY
+            is_expired = age > cache_expiry
 
             cache_data['is_expired'] = is_expired
 
             if is_expired:
                 logger.info(f"缓存已过期 ({age/3600:.1f} 小时): {url}")
             else:
-                logger.info(f"缓存命中 (剩余 {(self.CACHE_EXPIRY - age)/3600:.1f} 小时): {url}")
+                logger.info(f"缓存命中 (剩余 {(cache_expiry - age)/3600:.1f} 小时): {url}")
 
             return cache_data
 
@@ -207,7 +211,7 @@ class RequestCache:
         
         return count
 
-    def clear_expired(self) -> int:
+    def clear_expired(self, cache_expiry: int = CACHE_EXPIRY) -> int:
         """
         清除过期的缓存文件
 
@@ -224,7 +228,7 @@ class RequestCache:
                         cache_data = json.load(f)
                     
                     cached_time = cache_data.get('timestamp', 0)
-                    if current_time - cached_time > self.CACHE_EXPIRY:
+                    if current_time - cached_time > cache_expiry:
                         cache_file.unlink()
                         count += 1
                 except Exception:
