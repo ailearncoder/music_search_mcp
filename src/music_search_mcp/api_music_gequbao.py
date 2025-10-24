@@ -9,6 +9,11 @@ import logging
 
 # 导入logger
 from .logging_config import logger
+# 导入缓存管理器
+from .request_cache import RequestCache
+
+# 初始化全局缓存管理器
+_cache_manager = RequestCache()
 
 def parse_music_data(html_content: str) -> list:
     """
@@ -123,9 +128,16 @@ def gequbao_request(
     # 核心改动：允许 data 是一个字典或一个原始字符串
     data: Optional[Union[Dict[str, Any], str]] = None,
     json_data: Optional[Dict[str, Any]] = None,
+    use_cache: bool = True,
 ) -> Optional[requests.Response]:
     """
     在 "歌曲宝" 网站上发送指定方法的 HTTP 请求，并返回响应对象。
+    
+    支持智能缓存:
+    1. GET 请求: URL 匹配即命中缓存
+    2. POST 请求: URL + Body 匹配才命中缓存
+    3. 缓存有效期 24 小时
+    4. 过期后网络失败时返回过时缓存
 
     Args:
         path (str): 请求的路径 (例如 "/s/" 或 "/api/play-url")。
@@ -135,6 +147,7 @@ def gequbao_request(
         params (dict, optional): GET 请求的查询参数。默认为 None。
         data (dict or str, optional): POST 请求的表单数据或原始字符串。默认为 None。
         json_data (dict, optional): POST 请求的 JSON 数据。默认为 None。
+        use_cache (bool): 是否使用缓存。默认为 True。
 
     Returns:
         requests.Response or None: 如果请求成功，返回 Response 对象；
@@ -142,7 +155,31 @@ def gequbao_request(
     """
     base_url = "https://www.gequbao.com"
     full_url = f"{base_url}{path}"
+    
+    # 尝试从缓存获取
+    cached_response = None
+    if use_cache:
+        cached_data = _cache_manager.get(
+            url=full_url,
+            method=method,
+            data=data,
+            json_data=json_data,
+        )
+        
+        if cached_data:
+            is_expired = cached_data.get('is_expired', False)
+            
+            # 如果缓存未过期，直接返回缓存的响应
+            if not is_expired:
+                logger.info(f"使用有效缓存: {full_url}")
+                return _create_response_from_cache(cached_data)
+            else:
+                # 缓存已过期，保存以备网络失败时使用
+                logger.info(f"缓存已过期，将尝试网络请求: {full_url}")
+                cached_response = cached_data
+    
     logger.info(f"正在向 URL: {full_url} 发送 {method.upper()} 请求...")
+    
     try:
         # requests.request() 是一个更通用的方法，可以简化if/else
         response = requests.request(
@@ -158,12 +195,86 @@ def gequbao_request(
         # 检查请求是否成功 (例如，状态码不是 4xx 或 5xx)
         response.raise_for_status()
         logger.info(f"请求成功，状态码: {response.status_code}")
+        
+        # 保存到缓存
+        if use_cache:
+            _save_response_to_cache(
+                url=full_url,
+                response=response,
+                method=method,
+                data=data,
+                json_data=json_data,
+            )
+        
         # 成功时返回响应对象
         return response
+        
     except requests.exceptions.RequestException as e:
         # 捕获所有 requests 相关的异常
-        logger.error(f"请求失败: {e}")
-        return None
+        logger.error(f"网络请求失败: {e}")
+        
+        # 如果有过期的缓存，返回过期缓存
+        if cached_response:
+            logger.warning(f"网络请求失败，使用过期缓存: {full_url}")
+            return _create_response_from_cache(cached_response)
+
+        raise Exception(f"网络请求失败: {e}")
+
+
+def _create_response_from_cache(cached_data: Dict[str, Any]) -> requests.Response:
+    """
+    从缓存数据创建 requests.Response 对象
+    
+    Args:
+        cached_data: 缓存的响应数据
+    
+    Returns:
+        模拟的 Response 对象
+    """
+    # 创建一个模拟的 Response 对象
+    response = requests.Response()
+    response.status_code = cached_data.get('status_code', 200)
+    response._content = cached_data.get('content', '').encode('utf-8')
+    response.headers.update(cached_data.get('headers', {}))
+    response.encoding = cached_data.get('encoding', 'utf-8')
+    
+    return response
+
+
+def _save_response_to_cache(
+    url: str,
+    response: requests.Response,
+    method: str = "GET",
+    data: Optional[Union[Dict[str, Any], str]] = None,
+    json_data: Optional[Dict[str, Any]] = None,
+) -> None:
+    """
+    将响应保存到缓存
+    
+    Args:
+        url: 请求 URL
+        response: requests.Response 对象
+        method: 请求方法
+        data: POST 请求的表单数据
+        json_data: POST 请求的 JSON 数据
+    """
+    try:
+        response_data = {
+            'status_code': response.status_code,
+            'headers': dict(response.headers),
+            'content': response.text,
+            'encoding': response.encoding,
+        }
+        
+        _cache_manager.set(
+            url=url,
+            response_data=response_data,
+            method=method,
+            data=data,
+            json_data=json_data,
+        )
+    except Exception as e:
+        logger.error(f"保存响应到缓存失败: {e}")
 
 
 # 定义通用的请求头和 Cookie
