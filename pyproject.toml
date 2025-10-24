@@ -22,3 +22,9 @@ build-backend = "hatchling.build"
 
 [[tool.uv.index]]
 url = "https://mirrors.aliyun.com/pypi/simple"
+
+[dependency-groups]
+dev = [
+    "black>=25.9.0",
+    "rich>=14.2.0",
+]

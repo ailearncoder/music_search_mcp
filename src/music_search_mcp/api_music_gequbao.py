@@ -153,6 +153,7 @@ def gequbao_request(
             params=params,
             data=data,
             json=json_data,
+            timeout=10,
         )
         # 检查请求是否成功 (例如，状态码不是 4xx 或 5xx)
         response.raise_for_status()
@@ -182,18 +183,12 @@ request_headers = {
     "upgrade-insecure-requests": "1",
     "user-agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/137.0.0.0 Safari/537.36",
 }
-request_cookies = {
-    "Hm_tf_t8h1bavogbi": "1751779947",
-    "Hm_lvt_t8h1bavogbi": "1751779947",
-    "Hm_lpvt_t8h1bavogbi": "1751781221",
-}
-
 
 def search_sound(keyword: str):
     # 2. 将搜索词进行 URL 编码，以处理中文字符或特殊符号
     encoded_term = quote(keyword)
     response = gequbao_request(
-        headers=request_headers, cookies=request_cookies, path=f"/s/{encoded_term}"
+        headers=request_headers, path=f"/s/{encoded_term}"
     )
     if response and response.status_code == 200:
         return parse_music_data(response.text)
@@ -201,7 +196,7 @@ def search_sound(keyword: str):
 
 def play_sound(link: str):
     response = gequbao_request(
-        headers=request_headers, cookies=request_cookies, path=link
+        headers=request_headers, path=link
     )
     if response and response.status_code == 200:
         return extract_app_data(response.text)
@@ -211,7 +206,6 @@ def get_play_url(play_id: str) -> Dict:
     response = gequbao_request(
         method="POST",
         headers=request_headers,
-        cookies=request_cookies,
         path=f"/api/play-url",
         data={"id": play_id},
     )
@@ -281,6 +275,7 @@ def api_music_gequbao_search(keyword: str) -> Tuple[Dict, Dict] | None:
 
 
 def search_save():
+    import rich
     sounds = search_sound("林俊杰")
     sound_infos = []
     url_infos = []
@@ -292,7 +287,7 @@ def search_save():
         url_infos.append(get_play_url(info["play_id"]))
     for url_info in url_infos:
         rich.print(url_info)
-    with open("周杰伦.json", "w") as f:
+    with open("林俊杰.json", "w") as f:
         json.dump(
             {
                 "sounds": sounds,

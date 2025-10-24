@@ -17,7 +17,7 @@ mcp_with_instructions = FastMCP(
 )
 
 @mcp.tool
-def search_music(keyword: Annotated[str, "search keyword"]) -> list:
+def search_music(keyword: Annotated[str, "search keyword"]) -> dict:
     '''search music online, you can search by artist or song name'''
     result = api_music_gequbao_search(keyword)
     if result is None:
@@ -27,13 +27,19 @@ def search_music(keyword: Annotated[str, "search keyword"]) -> list:
         title = result[0]['mp3_title']
         artist = result[0]['mp3_author']
         artwork_url = result[0]['mp3_cover']
+        lrc = result[0].get('lrc', '')
         search_result = []
         search_result.append({
             "url": url,
             "title": title,
             "artist": artist,
-            "artworkUrl": artwork_url
+            "artworkUrl": artwork_url,
+            "lrc": lrc
         })
-        return search_result
+        return {
+            "success": True,
+            "result": search_result,
+            "nextTools": ["self.music.play"]
+        }
     except Exception as e:
         raise ToolError(f"search failed, {e}")
