@@ -68,6 +68,6 @@ def load_cert():
         logging.error(f"初始化证书文件时发生未知错误: {e}")
 
 def main() -> None:
-    load_cert()
     logging.basicConfig(level=logging.INFO, force=True)
+    load_cert()
     mcp.run()
