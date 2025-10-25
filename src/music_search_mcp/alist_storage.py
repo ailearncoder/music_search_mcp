@@ -4,6 +4,7 @@ from datetime import datetime
 import requests
 import logging
 import tempfile
+import copy
 import json
 import jwt
 import os
@@ -122,6 +123,7 @@ def save_music(music_info: dict) -> bool:
     Returns:
         bool: 保存是否成功
     """
+    music_info = copy.deepcopy(music_info)
     tmp_dir = None
     try:
         # 创建临时目录

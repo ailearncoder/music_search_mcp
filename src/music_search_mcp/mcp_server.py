@@ -5,6 +5,29 @@ from .api_music_gequbao import (
     api_music_gequbao_search
 )
 from .alist_storage import save_music
+import queue
+import threading
+import logging
+
+# 创建线程队列和启动工作线程
+music_queue = queue.Queue()
+
+# 工作线程函数，处理队列中的保存任务
+def worker():
+    while True:
+        try:
+            music_info = music_queue.get()
+            if music_info is None:  # 退出信号
+                break
+            save_music(music_info)
+            music_queue.task_done()
+        except Exception as e:
+            logging.error(f"保存音乐信息时出错: {e}")
+            music_queue.task_done()
+
+# 启动工作线程
+worker_thread = threading.Thread(target=worker, daemon=True)
+worker_thread.start()
 
 # Create a basic server instance
 mcp = FastMCP(name="music_search")
@@ -47,7 +70,8 @@ def search_music(keyword: Annotated[str, "search keyword"]) -> dict:
                 "lrcText": lrc,
                 "lrcUrl": lrc_url
             }
-            save_music(music_info)
+            # 将保存任务放入队列，异步执行
+            music_queue.put(music_info)
         if isinstance(result, dict):
             music_info = result
         search_result.append(music_info)
