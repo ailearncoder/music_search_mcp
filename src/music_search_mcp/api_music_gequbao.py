@@ -11,6 +11,7 @@ import logging
 from .logging_config import logger
 # 导入缓存管理器
 from .request_cache import RequestCache
+from .alist_storage import load_music
 
 # 初始化全局缓存管理器
 _cache_manager = RequestCache()
@@ -339,7 +340,7 @@ def get_play_url(play_id: str, use_cache: bool = False):
         raise Exception(f"response error, code: {response.status_code} text: {response.text}")
 
 
-def api_music_gequbao_search(keyword: str) -> Tuple[Dict, Dict] | None:
+def api_music_gequbao_search(keyword: str) -> Tuple[Dict, Dict] | Dict | None:
     """
     优化的歌曲搜索函数。
 
@@ -389,13 +390,23 @@ def api_music_gequbao_search(keyword: str) -> Tuple[Dict, Dict] | None:
     else: # search_type == 'song'
         # 直接选择最匹配的结果
         selected_sound = top_result
-        logger.info(f"为歌曲 '{top_song_title}' 选择了最匹配的结果。")
+        logger.info(f"为歌曲 '{top_song_title}' 选择了最匹配的结果: {selected_sound}")
+
+    try:
+        title = selected_sound["text"][0]
+        artist = selected_sound["text"][1]
+        music_info = load_music(title, artist)
+        if music_info:
+            logging.info(f"Openlist 已找到歌曲 '{title}' '{artist}'")
+            return music_info
+    except Exception as e:
+        logger.info(f"Error occurred while loading music info: {e}")
 
     # 4. 获取播放信息和URL
-    sound_info, cache = play_sound(selected_sound["link"], use_cache=True)
+    sound_info, _ = play_sound(selected_sound["link"])
     if sound_info is None:
         return None
-    play_url, cache = get_play_url(sound_info["play_id"], use_cache=True)
+    play_url, _ = get_play_url(sound_info["play_id"])
     
     return sound_info, play_url
 

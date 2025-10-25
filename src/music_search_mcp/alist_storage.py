@@ -214,14 +214,19 @@ def save_music(music_info: dict) -> bool:
                 logging.warning(f"清理临时目录失败: {e}")
 
 def load_music(title: str, artist: str) -> dict | None:
-    url = f"${get_openlist_base_url()}/d/upload/music/{quote(artist)}/{quote(title)}.json"
+    logging.info(f"开始加载音乐: {title} - {artist}")
+    url = f"{get_openlist_base_url()}/d/upload/music/{quote(artist)}/{quote(title)}.json"
     response = requests.get(url)
     if response.status_code != 200:
         logging.error(f"加载音乐失败: {response.status_code}")
         return
     music_info = response.json()
-    music_info["url"] = f"${get_openlist_base_url()}/d/upload/music/{quote(artist)}/{quote(title)}.mp3"
-    music_info["lrcUrl"] = f"${get_openlist_base_url()}/d/upload/music/{quote(artist)}/{quote(string=title)}.lrc"
+    if 'code' in music_info:
+        logging.error(f"加载音乐失败: {music_info['code']}")
+        return
+    music_info["url"] = f"{get_openlist_base_url()}/d/upload/music/{quote(artist)}/{quote(title)}.mp3"
+    music_info["lrcUrl"] = f"{get_openlist_base_url()}/d/upload/music/{quote(artist)}/{quote(string=title)}.lrc"
+    logging.info(f"已加载音乐 '{title}' '{artist}'")
     return music_info
 
 if __name__ == "__main__":

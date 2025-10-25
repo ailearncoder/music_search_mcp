@@ -16,7 +16,7 @@ def setup_logging():
         )
         
         # 创建控制台handler
-        console_handler = logging.StreamHandler(sys.stdout)
+        console_handler = logging.StreamHandler(sys.stderr)
         console_handler.setLevel(logging.INFO)
         console_handler.setFormatter(formatter)
         
