@@ -77,8 +77,8 @@ def search_music(keyword: Annotated[str, "search keyword"]) -> dict:
         search_result.append(music_info)
         return {
             "success": True,
-            "result": {"musicList": search_result},
-            "nextTools": ["self.music.play"],
+            "result": {"urlList": search_result},
+            "nextTools": ["self.url.play"],
         }
     except Exception as e:
         raise ToolError(f"search failed, {e}")
