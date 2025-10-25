@@ -76,7 +76,7 @@ def parse_play_data(html_content: str) -> list:
     return data_list
 
 
-def extract_app_data(html_content: str) -> tuple:
+def extract_app_data(html_content: str) -> dict | None:
     """
     从 <script> 标签内容中提取 window.appData 的 JSON 对象。
 
@@ -130,7 +130,7 @@ def gequbao_request(
     json_data: Optional[Dict[str, Any]] = None,
     use_cache: bool = True,
     cache_expiry: int | None = None,
-) -> Optional[requests.Response]:
+) -> tuple[Optional[requests.Response], bool]:
     """
     在 "歌曲宝" 网站上发送指定方法的 HTTP 请求，并返回响应对象。
     
@@ -174,7 +174,7 @@ def gequbao_request(
             # 如果缓存未过期，直接返回缓存的响应
             if not is_expired:
                 logger.info(f"使用有效缓存: {full_url}")
-                return _create_response_from_cache(cached_data)
+                return _create_response_from_cache(cached_data), True
             else:
                 # 缓存已过期，保存以备网络失败时使用
                 logger.info(f"缓存已过期，将尝试网络请求: {full_url}")
@@ -209,7 +209,7 @@ def gequbao_request(
             )
         
         # 成功时返回响应对象
-        return response
+        return response, False
         
     except requests.exceptions.RequestException as e:
         # 捕获所有 requests 相关的异常
@@ -218,7 +218,7 @@ def gequbao_request(
         # 如果有过期的缓存，返回过期缓存
         if cached_response:
             logger.warning(f"网络请求失败，使用过期缓存: {full_url}")
-            return _create_response_from_cache(cached_response)
+            return _create_response_from_cache(cached_response), True
 
         raise Exception(f"网络请求失败: {e}")
 
@@ -300,31 +300,43 @@ request_headers = {
 def search_sound(keyword: str):
     # 2. 将搜索词进行 URL 编码，以处理中文字符或特殊符号
     encoded_term = quote(keyword)
-    response = gequbao_request(
+    response, _ = gequbao_request(
         headers=request_headers, path=f"/s/{encoded_term}"
     )
     if response and response.status_code == 200:
         return parse_music_data(response.text)
+    if response is None:
+        raise Exception("response is None")
+    else:
+        raise Exception(f"response error, code: {response.status_code} text: {response.text}")
 
 
-def play_sound(link: str):
-    response = gequbao_request(
-        headers=request_headers, path=link, use_cache=False
+def play_sound(link: str, use_cache: bool = False):
+    response, cache = gequbao_request(
+        headers=request_headers, path=link, use_cache=use_cache
     )
     if response and response.status_code == 200:
-        return extract_app_data(response.text)
+        return extract_app_data(response.text), cache
+    if response is None:
+        raise Exception("response is None")
+    else:
+        raise Exception(f"response error, code: {response.status_code} text: {response.text}")
 
 
-def get_play_url(play_id: str) -> Dict:
-    response = gequbao_request(
+def get_play_url(play_id: str, use_cache: bool = False):
+    response, cache = gequbao_request(
         method="POST",
         headers=request_headers,
         path=f"/api/play-url",
         data={"id": play_id},
-        use_cache=False
+        use_cache=use_cache
     )
     if response and response.status_code == 200:
-        return response.json()
+        return response.json(), cache
+    if response is None:
+        raise Exception("response is None")
+    else:
+        raise Exception(f"response error, code: {response.status_code} text: {response.text}")
 
 
 def api_music_gequbao_search(keyword: str) -> Tuple[Dict, Dict] | None:
@@ -380,10 +392,10 @@ def api_music_gequbao_search(keyword: str) -> Tuple[Dict, Dict] | None:
         logger.info(f"为歌曲 '{top_song_title}' 选择了最匹配的结果。")
 
     # 4. 获取播放信息和URL
-    sound_info = play_sound(selected_sound["link"])
+    sound_info, cache = play_sound(selected_sound["link"], use_cache=True)
     if sound_info is None:
         return None
-    play_url = get_play_url(sound_info["play_id"])
+    play_url, cache = get_play_url(sound_info["play_id"], use_cache=True)
     
     return sound_info, play_url
 
